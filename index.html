@@ -1,0 +1,1047 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0B0F14">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Minuteur Sport</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root{
+    --bg:#0B0F14;
+    --surface:#141B22;
+    --surface-2:#1B242C;
+    --line:#232E38;
+    --text:#EDEFF2;
+    --muted:#7C8894;
+    --work:#FF4B3E;
+    --rest:#35C2C1;
+    --warmup:#F2B705;
+    --prep:#F2B705;
+    --cooldown:#6C8EFF;
+    --end:#5CE68A;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0; padding:0; height:100%; background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    overscroll-behavior:none; user-select:none; -webkit-user-select:none;
+  }
+  #app{
+    position:fixed; inset:0;
+    padding-top:var(--safe-top); padding-bottom:var(--safe-bottom);
+    display:flex; flex-direction:column;
+    max-width:520px; margin:0 auto;
+    background:var(--bg);
+  }
+  .screen{ flex:1; display:flex; flex-direction:column; min-height:0; animation:fade .18s ease; }
+  @keyframes fade{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);} }
+
+  .topbar{
+    display:flex; align-items:center; gap:12px;
+    padding:14px 16px; border-bottom:1px solid var(--line); flex-shrink:0;
+  }
+  .topbar h1{ font-size:17px; font-weight:800; letter-spacing:.02em; margin:0; flex:1;}
+  .iconbtn{
+    width:40px; height:40px; border-radius:12px; background:var(--surface);
+    border:1px solid var(--line); color:var(--text); font-size:18px;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .iconbtn:active{ background:var(--surface-2); }
+
+  .content{ flex:1; overflow-y:auto; padding:16px; -webkit-overflow-scrolling:touch; }
+
+  .eyebrow{
+    font-size:11px; font-weight:800; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--muted); margin:0 0 6px;
+  }
+  .step-title{ font-size:24px; font-weight:800; margin:0 0 4px; letter-spacing:-0.01em;}
+  .step-sub{ font-size:14px; color:var(--muted); margin:0 0 20px; line-height:1.4; }
+
+  /* Cards / list */
+  .card{
+    background:var(--surface); border:1px solid var(--line); border-radius:16px;
+    padding:16px; margin-bottom:12px;
+  }
+  .preset-card{ display:flex; align-items:center; gap:12px; }
+  .preset-card .dot{ width:10px; height:10px; border-radius:50%; background:var(--work); flex-shrink:0;}
+  .preset-card .main{ flex:1; min-width:0; }
+  .preset-card .name{ font-size:16px; font-weight:700; margin:0 0 2px; }
+  .preset-card .meta{ font-size:12.5px; color:var(--muted); margin:0; }
+  .preset-card .del{ width:34px; height:34px; border-radius:10px; background:transparent; border:1px solid var(--line); color:var(--muted); font-size:15px; flex-shrink:0;}
+  .preset-card .chev{ color:var(--muted); font-size:18px; padding-left:2px; }
+
+  .empty{ text-align:center; padding:60px 20px; color:var(--muted); }
+  .empty .glyph{ font-size:40px; margin-bottom:12px; }
+  .empty p{ font-size:14px; line-height:1.5; margin:0; }
+
+  /* Form controls */
+  .field{ margin-bottom:18px; }
+  .field label{ display:block; font-size:13px; font-weight:700; color:var(--muted); margin-bottom:8px; text-transform:uppercase; letter-spacing:.06em;}
+  .textinput{
+    width:100%; background:var(--surface); border:1px solid var(--line); border-radius:12px;
+    padding:14px 16px; color:var(--text); font-size:16px; font-weight:600;
+  }
+  .textinput:focus{ outline:none; border-color:var(--work); }
+
+  .check-row{
+    display:flex; align-items:center; justify-content:space-between;
+    background:var(--surface); border:1px solid var(--line); border-radius:14px;
+    padding:15px 16px; margin-bottom:10px;
+  }
+  .check-row .label{ font-size:15px; font-weight:600; }
+  .check-row .sub{ font-size:12px; color:var(--muted); margin-top:2px; }
+  .switch{
+    width:48px; height:28px; border-radius:20px; background:var(--surface-2); border:1px solid var(--line);
+    position:relative; flex-shrink:0; transition:background .15s;
+  }
+  .switch.on{ background:var(--work); border-color:var(--work); }
+  .switch .knob{
+    position:absolute; top:2px; left:2px; width:22px; height:22px; border-radius:50%;
+    background:#fff; transition:transform .15s;
+  }
+  .switch.on .knob{ transform:translateX(20px); }
+
+  .stepper{ display:flex; align-items:center; gap:14px; }
+  .stepper button{
+    width:44px; height:44px; border-radius:12px; background:var(--surface); border:1px solid var(--line);
+    color:var(--text); font-size:20px; font-weight:700;
+  }
+  .stepper button:active{ background:var(--surface-2); }
+  .stepper .val{ font-size:22px; font-weight:800; min-width:36px; text-align:center; }
+
+  .choice-row{ display:flex; gap:10px; }
+  .choice-btn{
+    flex:1; padding:16px; border-radius:14px; background:var(--surface); border:1.5px solid var(--line);
+    color:var(--text); font-size:15px; font-weight:700; text-align:center;
+  }
+  .choice-btn.selected{ border-color:var(--work); background:rgba(255,75,62,.12); color:#fff; }
+
+  .sound-card{
+    display:flex; align-items:center; gap:12px;
+    background:var(--surface); border:1.5px solid var(--line); border-radius:14px;
+    padding:13px 14px; margin-bottom:10px;
+  }
+  .sound-card.selected{ border-color:var(--work); background:rgba(255,75,62,.08); }
+  .sc-icon{ font-size:24px; flex-shrink:0; width:34px; text-align:center; }
+  .sc-main{ flex:1; min-width:0; }
+  .sc-title{ font-size:15px; font-weight:700; }
+  .sc-sub{ font-size:12px; color:var(--muted); margin-top:2px; line-height:1.35; }
+  .sc-preview{
+    width:38px; height:38px; border-radius:50%; flex-shrink:0;
+    background:var(--surface-2); border:1px solid var(--line); color:var(--text); font-size:13px;
+  }
+  .sc-preview:active{ background:var(--work); border-color:var(--work); color:#fff; }
+
+  /* Wheels */
+  .wheel-wrap{ display:flex; justify-content:center; gap:8px; padding:8px 0 4px; position:relative; }
+  .wheel-highlight{
+    position:absolute; left:16px; right:16px; top:50%; height:44px; transform:translateY(-50%);
+    background:var(--surface); border-top:1px solid var(--line); border-bottom:1px solid var(--line);
+    border-radius:10px; pointer-events:none; z-index:0;
+  }
+  .wheel-col{ display:flex; flex-direction:column; align-items:center; z-index:1; }
+  .wheel-scroll{
+    width:78px; height:220px; overflow-y:scroll; scroll-snap-type:y mandatory;
+    -webkit-overflow-scrolling:touch;
+  }
+  .wheel-scroll::-webkit-scrollbar{ display:none; }
+  .wheel-item{
+    height:44px; display:flex; align-items:center; justify-content:center;
+    font-size:26px; font-weight:800; color:var(--muted); scroll-snap-align:center; font-variant-numeric:tabular-nums;
+  }
+  .wheel-item.active{ color:var(--text); }
+  .wheel-label{ font-size:11px; font-weight:800; color:var(--muted); letter-spacing:.1em; margin-top:8px; text-transform:uppercase;}
+  .wheel-sep{ font-size:26px; font-weight:800; color:var(--muted); align-self:center; margin-top:-12px; }
+  .wheel-preview{ text-align:center; font-size:14px; color:var(--muted); margin-top:10px; }
+
+  /* Footer / actions */
+  .footer{
+    padding:14px 16px; border-top:1px solid var(--line); flex-shrink:0;
+    padding-bottom:calc(14px + var(--safe-bottom));
+  }
+  .btn{
+    width:100%; padding:16px; border-radius:14px; border:none; font-size:16px; font-weight:800;
+    background:var(--work); color:#fff; letter-spacing:.01em;
+  }
+  .btn:active{ filter:brightness(.9); }
+  .btn.secondary{ background:var(--surface); color:var(--text); border:1px solid var(--line); }
+  .btn.ghost{ background:transparent; color:var(--muted); }
+  .btn[disabled]{ opacity:.4; }
+  .btn-row{ display:flex; gap:10px; }
+  .btn-row .btn{ flex:1; }
+
+  .fab-add{
+    position:fixed; bottom:calc(24px + var(--safe-bottom)); right:calc(50% - 260px + 20px);
+    width:58px; height:58px; border-radius:50%; background:var(--work); color:#fff;
+    display:flex; align-items:center; justify-content:center; font-size:26px; font-weight:400;
+    border:none; box-shadow:0 8px 24px rgba(255,75,62,.4); z-index:5;
+  }
+  @media (max-width:560px){ .fab-add{ right:24px; } }
+
+  /* Summary (preset detail) */
+  .summary-item{ display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid var(--line); }
+  .summary-item:last-child{ border-bottom:none; }
+  .summary-item .tag{
+    width:8px; height:34px; border-radius:4px; flex-shrink:0;
+  }
+  .summary-item .t{ font-size:14.5px; font-weight:700; }
+  .summary-item .d{ font-size:12.5px; color:var(--muted); }
+
+  /* Run screen */
+  .run-screen{ background:var(--bg); align-items:center; justify-content:space-between; text-align:center; }
+  .run-top{ padding:16px 16px 0; width:100%; display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+  .run-top-main{ flex:1; min-width:0; }
+  .eco-toggle{
+    flex-shrink:0; display:flex; align-items:center; gap:6px; padding:8px 12px; border-radius:20px;
+    background:var(--surface); border:1px solid var(--line); color:var(--muted); font-size:12px; font-weight:800;
+  }
+  .eco-toggle.on{ background:rgba(92,230,138,.12); border-color:var(--end); color:var(--end); }
+  .phase-pill{
+    display:inline-block; padding:8px 18px; border-radius:20px; font-size:12.5px; font-weight:800;
+    letter-spacing:.1em; text-transform:uppercase; margin-bottom:6px;
+  }
+  .exercise-label{ font-size:14px; color:var(--muted); font-weight:600; min-height:18px; }
+  .ring-wrap{ position:relative; width:min(78vw,300px); height:min(78vw,300px); margin:10px auto; }
+  .ring-wrap svg{ width:100%; height:100%; transform:rotate(-90deg); }
+  .ring-bg{ fill:none; stroke:var(--surface); stroke-width:14; }
+  .ring-fg{ fill:none; stroke-width:14; stroke-linecap:round; transition:stroke .2s; }
+  .ring-center{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  .time-display{ font-size:58px; font-weight:800; letter-spacing:-0.02em; font-variant-numeric:tabular-nums; line-height:1; }
+  .round-display{ font-size:13px; color:var(--muted); font-weight:700; margin-top:8px; letter-spacing:.04em;}
+  .up-next{ font-size:12.5px; color:var(--muted); padding:0 20px 8px; min-height:18px; }
+  .run-controls{ width:100%; padding:16px 20px calc(20px + var(--safe-bottom)); display:flex; gap:12px; }
+  .ctrl-btn{
+    flex:1; padding:16px; border-radius:16px; border:1px solid var(--line); background:var(--surface);
+    color:var(--text); font-size:15px; font-weight:800;
+  }
+  .ctrl-btn.primary{ background:var(--work); border-color:var(--work); color:#fff; }
+  .ctrl-btn.stop{ color:var(--work); }
+
+  #dimOverlay{
+    position:fixed; inset:0; background:#000; opacity:0; pointer-events:none;
+    transition:opacity .7s ease; z-index:15;
+  }
+
+  .confirm-overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center;
+    padding:24px; z-index:20;
+  }
+  .confirm-box{ background:var(--surface); border:1px solid var(--line); border-radius:18px; padding:22px; width:100%; max-width:340px; }
+  .confirm-box h3{ margin:0 0 8px; font-size:17px; }
+  .confirm-box p{ margin:0 0 18px; font-size:14px; color:var(--muted); line-height:1.4; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="dimOverlay"></div>
+
+<script>
+/* ============================= UTILITAIRES ============================= */
+const pad2 = n => String(n).padStart(2,'0');
+const fmtHMS = s => {
+  s = Math.max(0, Math.round(s));
+  const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
+  return h>0 ? `${h}:${pad2(m)}:${pad2(sec)}` : `${pad2(m)}:${pad2(sec)}`;
+};
+const fmtShort = s => {
+  s = Math.max(0, Math.round(s));
+  const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
+  let parts=[];
+  if(h) parts.push(h+'h');
+  if(m) parts.push(m+'min');
+  if(sec || parts.length===0) parts.push(sec+'s');
+  return parts.join(' ');
+};
+const uid = () => 'p_' + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+
+/* stockage local — fonctionne une fois l'app installée (PWA/APK). */
+const Store = {
+  KEY:'sportTimerPresets',
+  all(){ try{ return JSON.parse(localStorage.getItem(this.KEY)) || []; }catch(e){ return []; } },
+  save(list){ try{ localStorage.setItem(this.KEY, JSON.stringify(list)); }catch(e){} },
+  add(preset){ const l=this.all(); l.unshift(preset); this.save(l); },
+  remove(id){ this.save(this.all().filter(p=>p.id!==id)); },
+  get(id){ return this.all().find(p=>p.id===id); }
+};
+
+/* ============================= AUDIO / VIBRATION ============================= */
+let actx = null, masterBus = null, limiter = null, noiseBuffer = null;
+function ensureAudio(){
+  if(!actx){
+    try{
+      actx = new (window.AudioContext||window.webkitAudioContext)();
+      // bus maître : tous les sons y transitent avant la sortie, pour un niveau
+      // normalisé/compressé au maximum acceptable sans distordre les haut-parleurs.
+      masterBus = actx.createGain(); masterBus.gain.value = 1;
+      limiter = actx.createDynamicsCompressor();
+      limiter.threshold.setValueAtTime(-8, actx.currentTime);
+      limiter.knee.setValueAtTime(4, actx.currentTime);
+      limiter.ratio.setValueAtTime(18, actx.currentTime);
+      limiter.attack.setValueAtTime(0.002, actx.currentTime);
+      limiter.release.setValueAtTime(0.12, actx.currentTime);
+      masterBus.connect(limiter); limiter.connect(actx.destination);
+    }catch(e){}
+  }
+  if(actx && actx.state==='suspended'){ actx.resume(); }
+}
+function getNoiseBuffer(){
+  if(!noiseBuffer && actx){
+    const len = actx.sampleRate; // 1s de bruit blanc, rejoué en boucle courte via enveloppe
+    noiseBuffer = actx.createBuffer(1, len, actx.sampleRate);
+    const data = noiseBuffer.getChannelData(0);
+    for(let i=0;i<len;i++) data[i] = Math.random()*2-1; // bruit blanc = énergie égale sur tout le spectre audible
+  }
+  return noiseBuffer;
+}
+function beep(freq=880, dur=0.15, delay=0, vol=0.22, type='sine'){
+  if(!actx) return;
+  const t0 = actx.currentTime + delay;
+  const osc = actx.createOscillator();
+  const gain = actx.createGain();
+  osc.type = type; osc.frequency.value = freq;
+  gain.gain.setValueAtTime(0, t0);
+  gain.gain.linearRampToValueAtTime(vol, t0+0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+  osc.connect(gain); gain.connect(masterBus);
+  osc.start(t0); osc.stop(t0+dur+0.02);
+}
+function vibrate(pattern){ if(navigator.vibrate){ try{ navigator.vibrate(pattern); }catch(e){} } }
+
+/* --- Thème "Zen" : bong / cloche chaude et posée (yoga, retour au calme) --- */
+function playBong(delay=0, vol=0.28){
+  if(!actx) return;
+  const t0 = actx.currentTime + delay;
+  // superposition de partiels légèrement inharmoniques -> timbre de cloche/bol tibétain
+  [{f:196, g:1, dur:1.5}, {f:196*2.42, g:.32, dur:1.1}, {f:196*3.9, g:.14, dur:.8}].forEach(p=>{
+    const osc = actx.createOscillator();
+    const gain = actx.createGain();
+    osc.type = 'sine'; osc.frequency.value = p.f;
+    gain.gain.setValueAtTime(0, t0);
+    gain.gain.linearRampToValueAtTime(vol*p.g, t0+0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0+p.dur);
+    osc.connect(gain); gain.connect(masterBus);
+    osc.start(t0); osc.stop(t0+p.dur+0.05);
+  });
+}
+/* --- Thème "Intense" : buzzer large bande (bruit blanc = toutes les fréquences audio
+   + harmoniques graves/aiguës) poussé fort et passé dans le limiteur du bus maître
+   pour un rendu normalisé au volume maximal acceptable par les haut-parleurs. --- */
+function playBuzzer(delay=0, vol=0.9, pulses=2){
+  if(!actx) return;
+  const t0 = actx.currentTime + delay;
+  for(let i=0;i<pulses;i++){
+    const start = t0 + i*0.17;
+    // Couche bruit blanc plein spectre (20 Hz - 20 kHz, énergie uniforme)
+    const noiseSrc = actx.createBufferSource();
+    noiseSrc.buffer = getNoiseBuffer();
+    const noiseGain = actx.createGain();
+    noiseGain.gain.setValueAtTime(0, start);
+    noiseGain.gain.linearRampToValueAtTime(vol*0.55, start+0.006);
+    noiseGain.gain.setValueAtTime(vol*0.55, start+0.10);
+    noiseGain.gain.exponentialRampToValueAtTime(0.0001, start+0.16);
+    noiseSrc.connect(noiseGain); noiseGain.connect(masterBus);
+    noiseSrc.start(start); noiseSrc.stop(start+0.17);
+
+    // Couches harmoniques (grave / medium / aigu) pour garder un caractère "buzzer" reconnaissable
+    [{f:110,g:1},{f:220,g:.7},{f:880,g:.5},{f:2800,g:.35}].forEach(p=>{
+      const osc = actx.createOscillator();
+      const g = actx.createGain();
+      osc.type = 'sawtooth'; osc.frequency.value = p.f;
+      const gv = vol*p.g;
+      g.gain.setValueAtTime(0, start);
+      g.gain.linearRampToValueAtTime(gv, start+0.008);
+      g.gain.setValueAtTime(gv, start+0.11);
+      g.gain.exponentialRampToValueAtTime(0.0001, start+0.16);
+      osc.connect(g); g.connect(masterBus);
+      osc.start(start); osc.stop(start+0.18);
+    });
+  }
+}
+/* Tic d'avertissement (3 tics avant chaque transition) — timbre adapté au thème choisi */
+function tickSound(style, delay=0){
+  if(style==='zen') beep(880, 0.05, delay, 0.09, 'sine');
+  else beep(1300, 0.05, delay, 0.2, 'square');
+}
+/* Annonce de changement de phase */
+function signalPhaseStart(type, style='intense'){
+  if(type==='end'){
+    if(style==='zen'){ playBong(0,0.3); playBong(0.95,0.22); vibrate([120,150,150]); }
+    else { playBuzzer(0,0.85,2); playBuzzer(0.5,0.95,3); vibrate([100,80,100,80,220]); }
+    return;
+  }
+  if(style==='zen'){ playBong(0); vibrate(50); }
+  else { playBuzzer(0); vibrate(type==='work' ? [90,60,90] : 90); }
+}
+/* Prévisualisation depuis l'écran de configuration : 3 tics puis le son choisi */
+function previewSound(style){
+  ensureAudio();
+  tickSound(style,0); tickSound(style,0.4); tickSound(style,0.8);
+  if(style==='zen') playBong(1.35); else playBuzzer(1.35);
+}
+
+let wakeLock = null;
+async function requestWakeLock(){ try{ if('wakeLock' in navigator){ wakeLock = await navigator.wakeLock.request('screen'); } }catch(e){} }
+function releaseWakeLock(){ if(wakeLock){ try{ wakeLock.release(); }catch(e){} wakeLock=null; } }
+
+/* ============================= ETAT GLOBAL ============================= */
+const state = {
+  screen:'home',
+  navStack:[],
+  draft:null,       // preset en cours de création
+  wizardQueue:[],    // liste des étapes restantes
+  wizardIndex:0,
+  activePreset:null,
+  run:null,
+};
+
+function go(screen, opts={}){
+  if(opts.push!==false) state.navStack.push(state.screen);
+  state.screen = screen;
+  render();
+}
+function back(){
+  const prev = state.navStack.pop();
+  if(prev){ state.screen = prev; render(); }
+  else { state.screen='home'; render(); }
+}
+
+/* ============================= WIZARD : construction de la file d'étapes ============================= */
+function buildWizardQueue(d){
+  const q = [];
+  if(d.hasPrep) q.push({kind:'wheel', key:'prepTime', title:'Préparation', sub:'Durée de la phase de préparation avant l'+"'"+'entraînement.'});
+  if(d.hasWarmup) q.push({kind:'wheel', key:'warmupTime', title:'Échauffement', sub:'Durée de la phase d\u2019échauffement.'});
+  q.push({kind:'choice', key:'fixedTime', title:'Temps fixe ?', sub:'Les exercices partagent-ils tous les mêmes réglages de temps ?'});
+  // le contenu dépendant de fixedTime est inséré dynamiquement après réponse (voir advanceWizard)
+  if(d.hasCooldown) q.push({kind:'wheel', key:'cooldownTime', title:'Retour au calme', sub:'Durée de la phase de retour au calme.'});
+  q.push({kind:'name', title:'Nom du preset', sub:'Donnez un nom à cet entraînement pour le retrouver facilement.'});
+  return q;
+}
+function exerciseStepsFor(n, withRestBetween){
+  const steps = [];
+  for(let i=1;i<=n;i++){
+    steps.push({kind:'wheel', key:`ex_${i}_work`, title:`Exercice ${i}`, sub:'Temps de travail.', badge:`${i}/${n}`});
+    steps.push({kind:'wheel', key:`ex_${i}_rest`, title:`Exercice ${i}`, sub:'Temps de récupération entre les séries.', badge:`${i}/${n}`});
+    steps.push({kind:'stepper', key:`ex_${i}_rounds`, title:`Exercice ${i}`, sub:'Nombre de séries (tours).', badge:`${i}/${n}`});
+    if(withRestBetween && i<n){
+      steps.push({kind:'wheel', key:`ex_${i}_restNext`, title:`Exercice ${i}`, sub:'Récupération avant l\u2019exercice suivant.', badge:`${i}/${n}`});
+    }
+  }
+  return steps;
+}
+
+function startCreate(){
+  state.draft = {
+    id:null, name:'',
+    hasPrep:false, prepTime:60,
+    hasWarmup:false, warmupTime:180,
+    hasRestBetween:false,
+    hasCooldown:false, cooldownTime:120,
+    numExercises:1,
+    soundStyle:'intense',
+    fixedTime:null,
+    fixed:{work:30,rest:15,rounds:3,restNext:30},
+    exercises:[],
+  };
+  go('wizardIntro');
+}
+
+function launchWizard(){
+  state.wizardQueue = buildWizardQueue(state.draft);
+  state.wizardIndex = 0;
+  go('wizardStep');
+}
+
+function currentStep(){ return state.wizardQueue[state.wizardIndex]; }
+
+function advanceWizard(){
+  const step = currentStep();
+  // insertion dynamique une fois qu'on connait fixedTime
+  if(step && step.key==='fixedTime' && state.draft.fixedTime!==null){
+    // retire d'éventuelles étapes dynamiques précédemment insérées (cas d'un retour en arrière + nouveau choix)
+    for(let i=state.wizardQueue.length-1; i>state.wizardIndex; i--){
+      if(state.wizardQueue[i]._inserted) state.wizardQueue.splice(i,1);
+    }
+    let toInsert;
+    if(state.draft.fixedTime===true){
+      toInsert = [
+        {kind:'wheel', key:'fixed_work', title:'Temps de travail', sub:'S\u2019applique à tous les exercices.'},
+        {kind:'wheel', key:'fixed_rest', title:'Temps de récupération', sub:'Entre chaque série, pour tous les exercices.'},
+        {kind:'stepper', key:'fixed_rounds', title:'Nombre de tours', sub:'S\u2019applique à tous les exercices.'},
+      ];
+      if(state.draft.hasRestBetween){
+        toInsert.push({kind:'wheel', key:'fixed_restNext', title:'Récupération avant l\u2019exercice suivant', sub:'Entre chaque exercice.'});
+      }
+    } else {
+      toInsert = exerciseStepsFor(state.draft.numExercises, state.draft.hasRestBetween);
+    }
+    toInsert.forEach(s=>s._inserted=true);
+    state.wizardQueue.splice(state.wizardIndex+1, 0, ...toInsert);
+  }
+  state.wizardIndex++;
+  if(state.wizardIndex >= state.wizardQueue.length){
+    finalizePreset();
+  } else {
+    render();
+  }
+}
+
+function finalizePreset(){
+  const d = state.draft;
+  const preset = {
+    id: uid(),
+    name: d.name && d.name.trim() ? d.name.trim() : 'Entraînement',
+    hasPrep:d.hasPrep, prepTime:d.prepTime,
+    hasWarmup:d.hasWarmup, warmupTime:d.warmupTime,
+    hasCooldown:d.hasCooldown, cooldownTime:d.cooldownTime,
+    hasRestBetween:d.hasRestBetween,
+    numExercises:d.numExercises,
+    soundStyle: d.soundStyle==='zen' ? 'zen' : 'intense',
+    fixedTime:d.fixedTime,
+  };
+  if(d.fixedTime){
+    preset.fixed = {
+      work: d['fixed_work'] ?? 30,
+      rest: d['fixed_rest'] ?? 15,
+      rounds: d['fixed_rounds'] ?? 3,
+      restNext: d['fixed_restNext'] ?? 30,
+    };
+  } else {
+    preset.exercises = [];
+    for(let i=1;i<=d.numExercises;i++){
+      preset.exercises.push({
+        work: d[`ex_${i}_work`] ?? 30,
+        rest: d[`ex_${i}_rest`] ?? 15,
+        rounds: d[`ex_${i}_rounds`] ?? 3,
+        restNext: d[`ex_${i}_restNext`] ?? 30,
+      });
+    }
+  }
+  Store.add(preset);
+  state.draft = null;
+  state.navStack = [];
+  go('home', {push:false});
+}
+
+/* ============================= SEQUENCE D'ENTRAINEMENT ============================= */
+function buildSequence(p){
+  const seq = [];
+  if(p.hasPrep) seq.push({type:'prep', label:'Préparation', sub:'', duration:p.prepTime});
+  if(p.hasWarmup) seq.push({type:'warmup', label:'Échauffement', sub:'', duration:p.warmupTime});
+  for(let i=1;i<=p.numExercises;i++){
+    const cfg = p.fixedTime ? p.fixed : p.exercises[i-1];
+    for(let r=1;r<=cfg.rounds;r++){
+      seq.push({type:'work', label:`Exercice ${i}`, sub:`Série ${r}/${cfg.rounds}`, duration:cfg.work});
+      if(r<cfg.rounds){
+        seq.push({type:'rest', label:'Récupération', sub:`Avant série ${r+1}/${cfg.rounds}`, duration:cfg.rest});
+      }
+    }
+    if(p.hasRestBetween && i<p.numExercises){
+      seq.push({type:'restBeforeNext', label:'Récupération', sub:`Avant exercice ${i+1}/${p.numExercises}`, duration:cfg.restNext});
+    }
+  }
+  if(p.hasCooldown) seq.push({type:'cooldown', label:'Retour au calme', sub:'', duration:p.cooldownTime});
+  seq.push({type:'end', label:'Terminé', sub:'', duration:0});
+  return seq;
+}
+
+function phaseColor(type){
+  return {prep:'var(--prep)', warmup:'var(--warmup)', work:'var(--work)', rest:'var(--rest)',
+          restBeforeNext:'var(--rest)', cooldown:'var(--cooldown)', end:'var(--end)'}[type] || 'var(--work)';
+}
+
+let timerInterval = null;
+function startRun(preset){
+  const seq = buildSequence(preset);
+  ensureAudio();
+  requestWakeLock();
+  state.run = {
+    preset, seq, idx:0,
+    remaining: seq[0].duration,
+    total: seq[0].duration,
+    paused:false,
+    finished:false,
+    style: preset.soundStyle || 'intense',
+    ecoMode:true,
+    lastTouch: Date.now(),
+  };
+  initTouchWatcher();
+  undimScreen();
+  signalPhaseStart(seq[0].type, state.run.style);
+  go('run');
+  tick_start();
+}
+function tick_start(){
+  clearInterval(timerInterval);
+  let last = Date.now();
+  timerInterval = setInterval(()=>{
+    const r = state.run;
+    if(!r || r.paused || r.finished) { last = Date.now(); return; }
+    const now = Date.now();
+    const dt = (now-last)/1000; last = now;
+    r.remaining -= dt;
+    const secLeft = Math.ceil(r.remaining);
+    if(r.remaining<=0){
+      nextPhase();
+    } else {
+      if(secLeft<=3 && secLeft>=1 && Math.abs(r.remaining - secLeft) < 0.06 && r.seq[r.idx].type!=='end' && r._lastTick!==secLeft){
+        r._lastTick = secLeft; tickSound(r.style);
+      }
+      renderRunOnly();
+    }
+    if(r.ecoMode && now-r.lastTouch >= 3000){ dimScreen(); }
+  }, 100);
+}
+function nextPhase(){
+  const r = state.run;
+  r.idx++;
+  if(r.idx >= r.seq.length){
+    finishRun();
+    return;
+  }
+  const ph = r.seq[r.idx];
+  r.remaining = ph.duration;
+  r.total = ph.duration;
+  r._lastTick = null;
+  signalPhaseStart(ph.type, r.style);
+  if(ph.type==='end'){ r.finished=true; clearInterval(timerInterval); releaseWakeLock(); }
+  render();
+}
+function finishRun(){
+  clearInterval(timerInterval);
+  releaseWakeLock();
+  undimScreen();
+}
+function pauseResume(){
+  state.run.paused = !state.run.paused;
+  render();
+}
+function skipPhase(){ nextPhase(); }
+function stopRun(){
+  clearInterval(timerInterval);
+  releaseWakeLock();
+  undimScreen();
+  state.run = null;
+  state.navStack = [];
+  go('home', {push:false});
+}
+function toggleEco(){
+  state.run.ecoMode = !state.run.ecoMode;
+  state.run.lastTouch = Date.now();
+  if(!state.run.ecoMode) undimScreen();
+  render();
+}
+
+/* ============================= ÉCONOMIE D'ÉCRAN (voile sombre après 3s d'inactivité) =============================
+   Le web n'offre aucun accès à la luminosité matérielle de l'écran (ni pour un site,
+   ni pour une TWA/APK générée sans code natif). On s'en approche en assombrissant
+   l'affichage via un voile semi-opaque, ce qui réduit réellement la consommation sur
+   écran OLED. Le maintien d'éveil (Wake Lock) reste actif en parallèle. */
+let touchWatcherReady = false;
+function initTouchWatcher(){
+  if(touchWatcherReady) return;
+  touchWatcherReady = true;
+  const onTouch = ()=>{
+    if(state.run){ state.run.lastTouch = Date.now(); }
+    undimScreen();
+  };
+  ['pointerdown','touchstart','mousedown','keydown'].forEach(evt=>{
+    document.addEventListener(evt, onTouch, {passive:true});
+  });
+}
+function dimScreen(){ const el=document.getElementById('dimOverlay'); if(el) el.style.opacity='0.88'; }
+function undimScreen(){ const el=document.getElementById('dimOverlay'); if(el) el.style.opacity='0'; }
+
+/* ============================= WHEEL PICKER (molette) ============================= */
+const ITEM_H = 44;
+function makeWheel(container, {min, max, value, onChange}){
+  container.innerHTML = '';
+  const scroll = document.createElement('div');
+  scroll.className = 'wheel-scroll';
+  const padCount = Math.floor(220/ITEM_H/2);
+  const items = [];
+  for(let v=min; v<=max; v++){
+    const it = document.createElement('div');
+    it.className = 'wheel-item';
+    it.textContent = pad2(v);
+    it.dataset.v = v;
+    scroll.appendChild(it);
+    items.push(it);
+  }
+  scroll.style.paddingTop = (padCount*ITEM_H)+'px';
+  scroll.style.paddingBottom = (padCount*ITEM_H)+'px';
+  container.appendChild(scroll);
+
+  function setActive(v){
+    items.forEach(it=>it.classList.toggle('active', parseInt(it.dataset.v)===v));
+  }
+  let raf = null;
+  scroll.addEventListener('scroll', ()=>{
+    if(raf) cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(()=>{
+      const idx = Math.round(scroll.scrollTop/ITEM_H);
+      const v = Math.min(max, Math.max(min, min+idx));
+      setActive(v);
+      onChange(v);
+    });
+  });
+  // positionnement initial
+  requestAnimationFrame(()=>{
+    scroll.scrollTop = (value-min)*ITEM_H;
+    setActive(value);
+  });
+  return { get(){ return value; } };
+}
+
+function hmsWheels(container, totalSeconds, onChange){
+  const h = Math.floor(totalSeconds/3600);
+  const m = Math.floor((totalSeconds%3600)/60);
+  const s = totalSeconds%60;
+  let cur = {h,m,s};
+  const emit = ()=> onChange(cur.h*3600+cur.m*60+cur.s);
+  container.innerHTML = `
+    <div class="wheel-highlight"></div>
+    <div class="wheel-col"><div data-w="h"></div><div class="wheel-label">Heures</div></div>
+    <div class="wheel-sep">:</div>
+    <div class="wheel-col"><div data-w="m"></div><div class="wheel-label">Min</div></div>
+    <div class="wheel-sep">:</div>
+    <div class="wheel-col"><div data-w="s"></div><div class="wheel-label">Sec</div></div>
+  `;
+  const hCol = container.querySelector('[data-w="h"]');
+  const mCol = container.querySelector('[data-w="m"]');
+  const sCol = container.querySelector('[data-w="s"]');
+  makeWheel(hCol, {min:0,max:9,value:h,onChange:v=>{cur.h=v; emit();}});
+  makeWheel(mCol, {min:0,max:59,value:m,onChange:v=>{cur.m=v; emit();}});
+  makeWheel(sCol, {min:0,max:59,value:s,onChange:v=>{cur.s=v; emit();}});
+  emit();
+}
+
+/* ============================= HELPERS UI ============================= */
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function getDefaultForKey(key){
+  if(key.includes('rounds')) return 3;
+  if(key==='prepTime') return 60;
+  if(key==='warmupTime') return 180;
+  if(key==='cooldownTime') return 120;
+  if(key.includes('restNext')) return 30;
+  if(key.includes('rest')) return 15;
+  if(key.includes('work')) return 30;
+  return 30;
+}
+function toggleDraft(key){ state.draft[key] = !state.draft[key]; render(); }
+function setDraftSound(style){ state.draft.soundStyle = style; render(); }
+function setDraftNum(key, delta, min, max){
+  const cur = state.draft[key] ?? getDefaultForKey(key);
+  state.draft[key] = Math.max(min, Math.min(max, cur+delta));
+  render();
+}
+function setStepperVal(key, delta, min, max){ setDraftNum(key, delta, min, max); }
+function setDraftName(val){ state.draft.name = val; }
+function cancelWizard(){ state.draft=null; state.navStack=[]; go('home',{push:false}); }
+function chooseFixed(val){ state.draft.fixedTime = val; advanceWizard(); }
+function wizardBack(){
+  if(state.wizardIndex>0){ state.wizardIndex--; render(); }
+  else cancelWizard();
+}
+function openPreset(id){ state.activePreset = Store.get(id); go('presetDetail'); }
+function deletePreset(id){
+  if(window.confirm('Supprimer ce preset ?')){ Store.remove(id); render(); }
+}
+
+/* ============================= RENDER : ACCUEIL ============================= */
+function renderHome(app){
+  const presets = Store.all();
+  let list;
+  if(presets.length===0){
+    list = `<div class="empty"><div class="glyph">⏱️</div><p>Aucun entraînement pour l'instant.<br>Touchez le bouton + pour créer votre premier preset.</p></div>`;
+  } else {
+    list = presets.map(p=>{
+      const total = buildSequence(p).reduce((a,s)=>a+s.duration,0);
+      const meta = `${p.numExercises} exercice${p.numExercises>1?'s':''} · ${fmtShort(total)}`;
+      return `
+      <div class="preset-card" onclick="openPreset('${p.id}')">
+        <div class="dot"></div>
+        <div class="main"><p class="name">${escapeHtml(p.name)}</p><p class="meta">${meta}</p></div>
+        <button class="del" onclick="event.stopPropagation(); deletePreset('${p.id}')">✕</button>
+        <div class="chev">›</div>
+      </div>`;
+    }).join('');
+  }
+  app.innerHTML = `
+    <div class="screen">
+      <div class="topbar"><h1>Minuteur Sport</h1></div>
+      <div class="content">${list}</div>
+    </div>
+    <button class="fab-add" onclick="startCreate()">+</button>
+  `;
+}
+
+/* ============================= RENDER : ETAPE 1 (INTRO) ============================= */
+function renderWizardIntro(app){
+  const d = state.draft;
+  app.innerHTML = `
+    <div class="screen">
+      <div class="topbar">
+        <button class="iconbtn" onclick="cancelWizard()">‹</button>
+        <h1>Nouveau preset</h1>
+      </div>
+      <div class="content">
+        <p class="eyebrow">Étape 1</p>
+        <h2 class="step-title">Configurer les phases</h2>
+        <p class="step-sub">Cochez ce que doit contenir l'entraînement, et indiquez le nombre d'exercices.</p>
+
+        <div class="check-row" onclick="toggleDraft('hasPrep')">
+          <div><div class="label">Préparation</div><div class="sub">Phase avant le début de l'entraînement</div></div>
+          <div class="switch ${d.hasPrep?'on':''}"><div class="knob"></div></div>
+        </div>
+        <div class="check-row" onclick="toggleDraft('hasWarmup')">
+          <div><div class="label">Échauffement</div></div>
+          <div class="switch ${d.hasWarmup?'on':''}"><div class="knob"></div></div>
+        </div>
+        <div class="check-row" onclick="toggleDraft('hasRestBetween')">
+          <div><div class="label">Récupération entre exercices</div><div class="sub">Pause ajoutée entre deux exercices différents</div></div>
+          <div class="switch ${d.hasRestBetween?'on':''}"><div class="knob"></div></div>
+        </div>
+        <div class="check-row" onclick="toggleDraft('hasCooldown')">
+          <div><div class="label">Retour au calme</div></div>
+          <div class="switch ${d.hasCooldown?'on':''}"><div class="knob"></div></div>
+        </div>
+
+        <div class="field" style="margin-top:22px;">
+          <label>Nombre d'exercices</label>
+          <div class="stepper">
+            <button onclick="setDraftNum('numExercises',-1,1,20)">−</button>
+            <div class="val">${d.numExercises}</div>
+            <button onclick="setDraftNum('numExercises',1,1,20)">+</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Ambiance sonore</label>
+          <div class="sound-card ${d.soundStyle==='zen'?'selected':''}" onclick="setDraftSound('zen')">
+            <div class="sc-icon">🧘</div>
+            <div class="sc-main">
+              <div class="sc-title">Zen</div>
+              <div class="sc-sub">3 tics puis un bong doux — yoga, étirements, séances calmes</div>
+            </div>
+            <button class="sc-preview" onclick="event.stopPropagation(); previewSound('zen')">▶</button>
+          </div>
+          <div class="sound-card ${d.soundStyle!=='zen'?'selected':''}" onclick="setDraftSound('intense')">
+            <div class="sc-icon">🚨</div>
+            <div class="sc-main">
+              <div class="sc-title">Intense</div>
+              <div class="sc-sub">3 tics puis un buzzer puissant — HIIT, cross-training, séances intenses</div>
+            </div>
+            <button class="sc-preview" onclick="event.stopPropagation(); previewSound('intense')">▶</button>
+          </div>
+        </div>
+      </div>
+      <div class="footer"><button class="btn" onclick="launchWizard()">Continuer</button></div>
+    </div>`;
+}
+
+/* ============================= RENDER : ETAPES SUIVANTES ============================= */
+function renderWizardStep(app){
+  const step = currentStep();
+  if(!step){ finalizePreset(); return; }
+  const d = state.draft;
+  const badge = step.badge ? ` · ${step.badge}` : '';
+
+  let bodyHtml = '';
+  if(step.kind==='wheel'){
+    bodyHtml = `
+      <div class="wheel-wrap" id="wheelContainer"></div>
+      <p class="wheel-preview" id="wheelPreview"></p>
+    `;
+  } else if(step.kind==='choice'){
+    bodyHtml = `
+      <div class="choice-row">
+        <button class="choice-btn ${d.fixedTime===true?'selected':''}" onclick="chooseFixed(true)">OUI</button>
+        <button class="choice-btn ${d.fixedTime===false?'selected':''}" onclick="chooseFixed(false)">NON</button>
+      </div>`;
+  } else if(step.kind==='stepper'){
+    const val = d[step.key] ?? getDefaultForKey(step.key);
+    bodyHtml = `
+      <div class="stepper" style="justify-content:center; padding:20px 0;">
+        <button onclick="setStepperVal('${step.key}',-1,1,99)">−</button>
+        <div class="val" style="font-size:34px; min-width:60px;">${val}</div>
+        <button onclick="setStepperVal('${step.key}',1,1,99)">+</button>
+      </div>`;
+  } else if(step.kind==='name'){
+    bodyHtml = `
+      <div class="field">
+        <label>Nom du preset</label>
+        <input class="textinput" id="presetNameInput" type="text" placeholder="Ex. Circuit training bas du corps"
+               value="${escapeHtml(d.name||'')}" oninput="setDraftName(this.value)" maxlength="40">
+      </div>`;
+  }
+
+  const showFooterValidate = step.kind!=='choice';
+  const isLast = state.wizardIndex === state.wizardQueue.length-1;
+
+  app.innerHTML = `
+    <div class="screen">
+      <div class="topbar">
+        <button class="iconbtn" onclick="wizardBack()">‹</button>
+        <h1>Nouvel entraînement</h1>
+      </div>
+      <div class="content" style="flex:0 0 auto; overflow:visible;">
+        <p class="eyebrow">Étape ${state.wizardIndex+1} / ${state.wizardQueue.length}${badge}</p>
+        <h2 class="step-title">${step.title}</h2>
+        <p class="step-sub">${step.sub || ''}</p>
+      </div>
+      <div class="content" style="flex:0 0 auto; padding-top:0;">${bodyHtml}</div>
+      <div style="flex:1;"></div>
+      ${showFooterValidate ? `<div class="footer"><button class="btn" onclick="advanceWizard()">${isLast ? 'Enregistrer le preset' : 'Valider'}</button></div>` : ''}
+    </div>`;
+
+  if(step.kind==='wheel'){
+    const wc = document.getElementById('wheelContainer');
+    const previewEl = document.getElementById('wheelPreview');
+    const initial = d[step.key] ?? getDefaultForKey(step.key);
+    hmsWheels(wc, initial, (secs)=>{
+      d[step.key] = secs;
+      if(previewEl) previewEl.textContent = 'Durée : ' + fmtShort(secs);
+    });
+  }
+  if(step.kind==='name'){
+    const inp = document.getElementById('presetNameInput');
+    if(inp) inp.focus({preventScroll:true});
+  }
+}
+
+/* ============================= RENDER : DETAIL PRESET ============================= */
+function renderPresetDetail(app){
+  const p = state.activePreset;
+  if(!p){ go('home',{push:false}); return; }
+  const seq = buildSequence(p).filter(s=>s.type!=='end');
+  const total = seq.reduce((a,s)=>a+s.duration,0);
+  const items = seq.map(s=>`
+    <div class="summary-item">
+      <div class="tag" style="background:${phaseColor(s.type)}"></div>
+      <div style="flex:1;">
+        <div class="t">${s.label}${s.sub ? ' — '+s.sub : ''}</div>
+        <div class="d">${fmtShort(s.duration)}</div>
+      </div>
+    </div>`).join('');
+
+  app.innerHTML = `
+    <div class="screen">
+      <div class="topbar">
+        <button class="iconbtn" onclick="back()">‹</button>
+        <h1>${escapeHtml(p.name)}</h1>
+      </div>
+      <div class="content">
+        <p class="step-sub" style="margin-bottom:4px;">${p.numExercises} exercice${p.numExercises>1?'s':''} · Durée totale estimée : ${fmtShort(total)}</p>
+        <p class="step-sub" style="margin-bottom:16px; display:flex; align-items:center; gap:8px;">
+          Ambiance : ${p.soundStyle==='zen' ? '🧘 Zen (bong)' : '🚨 Intense (buzzer)'}
+          <button class="sc-preview" style="width:30px; height:30px; font-size:11px;" onclick="previewSound('${p.soundStyle==='zen'?'zen':'intense'}')">▶</button>
+        </p>
+        <div class="card" style="padding:6px 16px;">${items}</div>
+      </div>
+      <div class="footer"><button class="btn" onclick="startRun(Store.get('${p.id}'))">▶ Démarrer</button></div>
+    </div>`;
+}
+
+/* ============================= RENDER : ENTRAINEMENT EN COURS ============================= */
+let runRefs = {};
+function renderRun(app){
+  const r = state.run;
+  const ph = r.seq[r.idx];
+  const next = r.seq[r.idx+1];
+  const total = ph.duration || 1;
+  const frac = ph.type==='end' ? 1 : Math.max(0, Math.min(1, r.remaining/total));
+  const RADIUS = 130, CIRC = 2*Math.PI*RADIUS;
+  const dashoffset = CIRC*(1-frac);
+  const color = phaseColor(ph.type);
+
+  const controlsHtml = ph.type==='end' ? `
+    <div class="run-controls">
+      <button class="ctrl-btn primary" style="flex:1" onclick="stopRun()">Retour à l'accueil</button>
+    </div>` : `
+    <div class="run-controls">
+      <button class="ctrl-btn stop" onclick="askStop()">Arrêter</button>
+      <button class="ctrl-btn primary" onclick="pauseResume()">${r.paused?'▶ Reprendre':'⏸ Pause'}</button>
+      <button class="ctrl-btn" onclick="skipPhase()">Suivant ›</button>
+    </div>`;
+
+  app.innerHTML = `
+    <div class="screen run-screen">
+      <div class="run-top">
+        <div class="run-top-main">
+          <span class="phase-pill" style="background:${color}22; color:${color};">${ph.label}</span>
+          <div class="exercise-label">${ph.sub||''}</div>
+        </div>
+        ${ph.type!=='end' ? `<button class="eco-toggle ${r.ecoMode?'on':''}" onclick="toggleEco()">🔋 Éco ${r.ecoMode?'ON':'OFF'}</button>` : ''}
+      </div>
+      <div class="ring-wrap">
+        <svg viewBox="0 0 300 300">
+          <circle class="ring-bg" cx="150" cy="150" r="${RADIUS}"></circle>
+          <circle class="ring-fg" id="ringFg" cx="150" cy="150" r="${RADIUS}"
+            stroke="${color}" stroke-dasharray="${CIRC}" stroke-dashoffset="${dashoffset}"></circle>
+        </svg>
+        <div class="ring-center">
+          <div class="time-display" id="timeDisplay">${ph.type==='end' ? '✓' : fmtHMS(r.remaining)}</div>
+          ${r.paused && ph.type!=='end' ? '<div class="round-display">EN PAUSE</div>' : ''}
+        </div>
+      </div>
+      <div class="up-next">${next ? 'Suivant : '+next.label : ''}</div>
+      ${controlsHtml}
+    </div>
+    ${state.showStopConfirm ? `
+      <div class="confirm-overlay">
+        <div class="confirm-box">
+          <h3>Arrêter l'entraînement ?</h3>
+          <p>La progression de cette séance ne sera pas conservée.</p>
+          <div class="btn-row">
+            <button class="btn secondary" onclick="cancelStop()">Annuler</button>
+            <button class="btn" onclick="confirmStop()">Arrêter</button>
+          </div>
+        </div>
+      </div>` : ''}
+  `;
+  runRefs.ring = document.getElementById('ringFg');
+  runRefs.time = document.getElementById('timeDisplay');
+  runRefs.circ = CIRC;
+}
+function renderRunOnly(){
+  const r = state.run;
+  if(!r || !runRefs.ring) return;
+  const ph = r.seq[r.idx];
+  const total = ph.duration || 1;
+  const frac = Math.max(0, Math.min(1, r.remaining/total));
+  runRefs.ring.setAttribute('stroke-dashoffset', runRefs.circ*(1-frac));
+  if(runRefs.time) runRefs.time.textContent = fmtHMS(r.remaining);
+}
+function askStop(){ state.showStopConfirm = true; render(); }
+function cancelStop(){ state.showStopConfirm = false; render(); }
+function confirmStop(){ state.showStopConfirm = false; stopRun(); }
+
+/* ============================= DISPATCH ============================= */
+function render(){
+  const app = document.getElementById('app');
+  if(state.screen==='home') renderHome(app);
+  else if(state.screen==='wizardIntro') renderWizardIntro(app);
+  else if(state.screen==='wizardStep') renderWizardStep(app);
+  else if(state.screen==='presetDetail') renderPresetDetail(app);
+  else if(state.screen==='run') renderRun(app);
+}
+
+/* ============================= INIT ============================= */
+document.addEventListener('touchmove', e=>{ if(e.scale && e.scale!==1) e.preventDefault(); }, {passive:false});
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); });
+}
+render();
+</script>
+</body>
+</html>
