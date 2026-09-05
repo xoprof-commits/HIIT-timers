@@ -45,25 +45,27 @@ Transférez le `.apk` sur votre téléphone Android et ouvrez-le (autorisez l'in
 ## Fonctionnement de l'app
 
 1. **Accueil** : liste de vos presets, bouton **+** pour en créer un nouveau.
-2. **Création — étape 1** : cochez Préparation / Échauffement / Récupération entre exercices / Retour au calme, indiquez le nombre d'exercices, et choisissez l'**ambiance sonore** (Zen ou Intense — bouton ▶ pour écouter avant de choisir).
-3. **Configuration détaillée** : molettes heures/minutes/secondes pour chaque durée, puis question **Temps fixe ?** (OUI = un seul réglage travail/récupération/tours pour tous les exercices, NON = réglages propres à chaque exercice), puis nom du preset.
-4. **Détail du preset** : résumé de toutes les phases, ambiance sonore choisie, bouton **Démarrer**.
-5. **Entraînement** : anneau de décompte coloré par phase, signal sonore et vibration à chaque transition, écran maintenu allumé pendant la séance.
+2. **Création — étape 1** : cochez Préparation / Échauffement / Récupération entre exercices / Retour au calme, indiquez le nombre d'exercices, choisissez indépendamment si le **temps de travail**, le **temps de récupération** et le **nombre de tours** sont identiques pour tous les exercices ou différents pour chacun, et choisissez l'**ambiance sonore** (Zen ou Intense — bouton ▶ pour écouter avant de choisir).
+3. **Configuration détaillée** : molettes heures/minutes/secondes pour chaque durée restante, puis nom du preset. Seuls les paramètres marqués « NON, par exercice » à l'étape 1 sont redemandés exercice par exercice ; les autres ne sont réglés qu'une seule fois.
+4. **Détail du preset** : résumé de toutes les phases, ambiance sonore choisie, boutons **✎ Modifier** (relance l'assistant pré-rempli avec les valeurs existantes, y compris la détection automatique de ce qui était identique ou différent par exercice) et **▶ Démarrer**.
+5. **Entraînement** : anneau de décompte coloré par phase, numéro d'exercice / série / phase suivante affichés en grand, gras et en couleur pour rester lisible en plein effort, signal sonore et vibration à chaque transition, écran maintenu allumé pendant la séance.
 
-### Ambiances sonores
+### Signaux sonores pendant l'entraînement
 
-Les deux ambiances sont toujours précédées des **3 tics d'avertissement** dans les 3 dernières secondes de chaque phase :
+Les deux ambiances (Zen 🧘 / Intense 🚨) suivent la même structure, avec un timbre différent (bong doux vs buzzer plein spectre) :
 
-- **Zen 🧘** — un bong/cloche chaude et posée (idéal yoga, étirements, retour au calme)
-- **Intense 🚨** — un buzzer plein spectre : bruit blanc (toutes les fréquences audio, 20 Hz–20 kHz) superposé à des harmoniques graves/médiums/aiguës, le tout passé dans un compresseur/limiteur qui pousse le niveau au maximum acceptable par les haut-parleurs du téléphone sans distorsion (idéal HIIT, cross-training)
+- **Démarrage d'un temps de travail** : 1 signal long (3 secondes) — le moment le plus important à repérer sans regarder l'écran.
+- **Toute autre transition** (préparation, échauffement, récupération, retour au calme) : 3 signaux brefs.
+- **Fin totale de l'entraînement** : 5 signaux en rafale (version plus courte du signal « long », environ 0,6 s chacun, pour une fin nette sans que la sonnerie dure 15 secondes). Dites-le-moi si vous préferiez les 5 signaux réellement sur 3 secondes chacun, c'est un réglage facile à ajuster.
+- Le tout dernier temps de travail de la séance n'est jamais suivi d'un temps de récupération : il enchaîne directement sur le retour au calme (s'il est activé) puis sur le signal de fin.
 
-Le choix se fait par preset (chaque entraînement garde son ambiance), avec un bouton d'écoute pour tester avant de valider.
+Les **3 tics d'avertissement** dans les 3 dernières secondes de chaque phase restent inchangés, quel que soit le signal qui suit.
 
 ### Économie d'écran pendant l'entraînement
 
-Un bouton **🔋 Éco** est disponible en haut de l'écran d'entraînement (activé par défaut, désactivable à tout moment) :
-- Le maintien d'éveil (Wake Lock) empêche toujours la mise en veille complète du téléphone pendant la séance.
-- Après **3 secondes sans toucher l'écran**, un voile sombre s'affiche pour réduire la luminosité perçue et la consommation (particulièrement efficace sur écran OLED). Il disparaît instantanément au moindre contact avec l'écran.
+Un bouton **🔋 Éco** est disponible en haut de l'écran d'entraînement (**désactivé par défaut**, activable à tout moment) :
+- Le maintien d'éveil (Wake Lock) empêche toujours la mise en veille complète du téléphone pendant la séance, que le mode Éco soit activé ou non.
+- Une fois activé, après **3 secondes sans toucher l'écran**, un voile sombre s'affiche pour réduire la luminosité perçue et la consommation (particulièrement efficace sur écran OLED). Il disparaît instantanément au moindre contact avec l'écran.
 
 ⚠️ **Limite technique importante** : il n'existe aucune API web permettant à un site ou une application web (même packagée en `.apk` via PWABuilder, sans code natif) d'agir sur la luminosité réelle du rétroéclairage. Le voile sombre est donc la meilleure approximation possible dans ce cadre. Une vraie baisse de la luminosité matérielle nécessiterait de reconstruire l'app avec un wrapper natif (par exemple Capacitor + un plugin de luminosité), ce qui implique Android Studio et sort du périmètre d'un simple export PWABuilder — n'hésitez pas à demander si vous souhaitez explorer cette voie.
 

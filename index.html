@@ -124,6 +124,18 @@
   }
   .choice-btn.selected{ border-color:var(--work); background:rgba(255,75,62,.12); color:#fff; }
 
+  .toggle-pair{
+    background:var(--surface); border:1px solid var(--line); border-radius:14px;
+    padding:14px; margin-bottom:10px;
+  }
+  .tp-label{ font-size:14px; font-weight:600; margin-bottom:10px; line-height:1.3; }
+  .tp-buttons{ display:flex; gap:10px; }
+  .tp-btn{
+    flex:1; padding:11px 6px; border-radius:11px; background:var(--surface-2);
+    border:1.5px solid var(--line); color:var(--muted); font-size:12.5px; font-weight:700;
+  }
+  .tp-btn.selected{ border-color:var(--work); background:rgba(255,75,62,.14); color:#fff; }
+
   .sound-card{
     display:flex; align-items:center; gap:12px;
     background:var(--surface); border:1.5px solid var(--line); border-radius:14px;
@@ -205,10 +217,10 @@
   }
   .eco-toggle.on{ background:rgba(92,230,138,.12); border-color:var(--end); color:var(--end); }
   .phase-pill{
-    display:inline-block; padding:8px 18px; border-radius:20px; font-size:12.5px; font-weight:800;
-    letter-spacing:.1em; text-transform:uppercase; margin-bottom:6px;
+    display:inline-block; padding:9px 20px; border-radius:20px; font-size:16px; font-weight:800;
+    letter-spacing:.06em; text-transform:uppercase; margin-bottom:8px;
   }
-  .exercise-label{ font-size:14px; color:var(--muted); font-weight:600; min-height:18px; }
+  .exercise-label{ font-size:28px; font-weight:900; min-height:34px; letter-spacing:-0.01em; }
   .ring-wrap{ position:relative; width:min(78vw,300px); height:min(78vw,300px); margin:10px auto; }
   .ring-wrap svg{ width:100%; height:100%; transform:rotate(-90deg); }
   .ring-bg{ fill:none; stroke:var(--surface); stroke-width:14; }
@@ -216,7 +228,7 @@
   .ring-center{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
   .time-display{ font-size:58px; font-weight:800; letter-spacing:-0.02em; font-variant-numeric:tabular-nums; line-height:1; }
   .round-display{ font-size:13px; color:var(--muted); font-weight:700; margin-top:8px; letter-spacing:.04em;}
-  .up-next{ font-size:12.5px; color:var(--muted); padding:0 20px 8px; min-height:18px; }
+  .up-next{ font-size:19px; font-weight:800; padding:0 20px 8px; min-height:24px; }
   .run-controls{ width:100%; padding:16px 20px calc(20px + var(--safe-bottom)); display:flex; gap:12px; }
   .ctrl-btn{
     flex:1; padding:16px; border-radius:16px; border:1px solid var(--line); background:var(--surface);
@@ -316,75 +328,91 @@ function beep(freq=880, dur=0.15, delay=0, vol=0.22, type='sine'){
 function vibrate(pattern){ if(navigator.vibrate){ try{ navigator.vibrate(pattern); }catch(e){} } }
 
 /* --- Thème "Zen" : bong / cloche chaude et posée (yoga, retour au calme) --- */
-function playBong(delay=0, vol=0.28){
+function playBong(delay=0, vol=0.28, dur=1.5){
   if(!actx) return;
   const t0 = actx.currentTime + delay;
   // superposition de partiels légèrement inharmoniques -> timbre de cloche/bol tibétain
-  [{f:196, g:1, dur:1.5}, {f:196*2.42, g:.32, dur:1.1}, {f:196*3.9, g:.14, dur:.8}].forEach(p=>{
+  [{f:196, g:1, r:1}, {f:196*2.42, g:.32, r:.73}, {f:196*3.9, g:.14, r:.53}].forEach(p=>{
+    const d = dur*p.r;
     const osc = actx.createOscillator();
     const gain = actx.createGain();
     osc.type = 'sine'; osc.frequency.value = p.f;
     gain.gain.setValueAtTime(0, t0);
     gain.gain.linearRampToValueAtTime(vol*p.g, t0+0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, t0+p.dur);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0+d);
     osc.connect(gain); gain.connect(masterBus);
-    osc.start(t0); osc.stop(t0+p.dur+0.05);
+    osc.start(t0); osc.stop(t0+d+0.05);
   });
 }
 /* --- Thème "Intense" : buzzer large bande (bruit blanc = toutes les fréquences audio
    + harmoniques graves/aiguës) poussé fort et passé dans le limiteur du bus maître
-   pour un rendu normalisé au volume maximal acceptable par les haut-parleurs. --- */
-function playBuzzer(delay=0, vol=0.9, pulses=2){
+   pour un rendu normalisé au volume maximal acceptable par les haut-parleurs.
+   dur = durée du maintien (0.15s pour un "bref", jusqu'à 3s pour un "long"). --- */
+function playBuzzerPulse(delay=0, vol=0.9, dur=0.15){
   if(!actx) return;
   const t0 = actx.currentTime + delay;
-  for(let i=0;i<pulses;i++){
-    const start = t0 + i*0.17;
-    // Couche bruit blanc plein spectre (20 Hz - 20 kHz, énergie uniforme)
-    const noiseSrc = actx.createBufferSource();
-    noiseSrc.buffer = getNoiseBuffer();
-    const noiseGain = actx.createGain();
-    noiseGain.gain.setValueAtTime(0, start);
-    noiseGain.gain.linearRampToValueAtTime(vol*0.55, start+0.006);
-    noiseGain.gain.setValueAtTime(vol*0.55, start+0.10);
-    noiseGain.gain.exponentialRampToValueAtTime(0.0001, start+0.16);
-    noiseSrc.connect(noiseGain); noiseGain.connect(masterBus);
-    noiseSrc.start(start); noiseSrc.stop(start+0.17);
+  const hold = Math.max(0.04, dur-0.08);
+  // Couche bruit blanc plein spectre (20 Hz - 20 kHz, énergie uniforme)
+  const noiseSrc = actx.createBufferSource();
+  noiseSrc.buffer = getNoiseBuffer();
+  noiseSrc.loop = true;
+  const noiseGain = actx.createGain();
+  noiseGain.gain.setValueAtTime(0, t0);
+  noiseGain.gain.linearRampToValueAtTime(vol*0.55, t0+0.008);
+  noiseGain.gain.setValueAtTime(vol*0.55, t0+hold);
+  noiseGain.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+  noiseSrc.connect(noiseGain); noiseGain.connect(masterBus);
+  noiseSrc.start(t0); noiseSrc.stop(t0+dur+0.05);
 
-    // Couches harmoniques (grave / medium / aigu) pour garder un caractère "buzzer" reconnaissable
-    [{f:110,g:1},{f:220,g:.7},{f:880,g:.5},{f:2800,g:.35}].forEach(p=>{
-      const osc = actx.createOscillator();
-      const g = actx.createGain();
-      osc.type = 'sawtooth'; osc.frequency.value = p.f;
-      const gv = vol*p.g;
-      g.gain.setValueAtTime(0, start);
-      g.gain.linearRampToValueAtTime(gv, start+0.008);
-      g.gain.setValueAtTime(gv, start+0.11);
-      g.gain.exponentialRampToValueAtTime(0.0001, start+0.16);
-      osc.connect(g); g.connect(masterBus);
-      osc.start(start); osc.stop(start+0.18);
-    });
-  }
+  // Couches harmoniques (grave / medium / aigu) pour garder un caractère "buzzer" reconnaissable
+  [{f:110,g:1},{f:220,g:.7},{f:880,g:.5},{f:2800,g:.35}].forEach(p=>{
+    const osc = actx.createOscillator();
+    const g = actx.createGain();
+    osc.type = 'sawtooth'; osc.frequency.value = p.f;
+    const gv = vol*p.g;
+    g.gain.setValueAtTime(0, t0);
+    g.gain.linearRampToValueAtTime(gv, t0+0.01);
+    g.gain.setValueAtTime(gv, t0+hold);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+    osc.connect(g); g.connect(masterBus);
+    osc.start(t0); osc.stop(t0+dur+0.05);
+  });
 }
 /* Tic d'avertissement (3 tics avant chaque transition) — timbre adapté au thème choisi */
 function tickSound(style, delay=0){
   if(style==='zen') beep(880, 0.05, delay, 0.09, 'sine');
   else beep(1300, 0.05, delay, 0.2, 'square');
 }
-/* Annonce de changement de phase */
+/* Annonce de changement de phase :
+   - Début d'un temps de travail : 1 signal long (3s) — l'instant le plus important à repérer.
+   - Fin totale de l'entraînement : 5 signaux longs, en rafale.
+   - Toute autre transition (préparation, échauffement, récupération, retour au calme) : 3 signaux brefs. */
 function signalPhaseStart(type, style='intense'){
   if(type==='end'){
-    if(style==='zen'){ playBong(0,0.3); playBong(0.95,0.22); vibrate([120,150,150]); }
-    else { playBuzzer(0,0.85,2); playBuzzer(0.5,0.95,3); vibrate([100,80,100,80,220]); }
+    for(let i=0;i<5;i++){
+      if(style==='zen') playBong(i*0.75, 0.32, 0.6);
+      else playBuzzerPulse(i*0.75, 0.95, 0.6);
+    }
+    vibrate([500,150,500,150,500,150,500,150,650]);
     return;
   }
-  if(style==='zen'){ playBong(0); vibrate(50); }
-  else { playBuzzer(0); vibrate(type==='work' ? [90,60,90] : 90); }
+  if(type==='work'){
+    if(style==='zen') playBong(0, 0.34, 3.0);
+    else playBuzzerPulse(0, 0.95, 3.0);
+    vibrate(2800);
+    return;
+  }
+  for(let i=0;i<3;i++){
+    if(style==='zen') playBong(i*0.26, 0.24, 0.35);
+    else playBuzzerPulse(i*0.26, 0.8, 0.15);
+  }
+  vibrate([70,70,70,70,70]);
 }
-/* Prévisualisation depuis l'écran de configuration : 3 tics puis le son choisi */
+/* Prévisualisation depuis l'écran de configuration : 3 tics puis le signal long de début d'exercice */
 function previewSound(style){
   ensureAudio();
   tickSound(style,0); tickSound(style,0.4); tickSound(style,0.8);
-  if(style==='zen') playBong(1.35); else playBuzzer(1.35);
+  if(style==='zen') playBong(1.3, 0.34, 3.0); else playBuzzerPulse(1.3, 0.95, 3.0);
 }
 
 let wakeLock = null;
@@ -418,23 +446,32 @@ function buildWizardQueue(d){
   const q = [];
   if(d.hasPrep) q.push({kind:'wheel', key:'prepTime', title:'Préparation', sub:'Durée de la phase de préparation avant l'+"'"+'entraînement.'});
   if(d.hasWarmup) q.push({kind:'wheel', key:'warmupTime', title:'Échauffement', sub:'Durée de la phase d\u2019échauffement.'});
-  q.push({kind:'choice', key:'fixedTime', title:'Temps fixe ?', sub:'Les exercices partagent-ils tous les mêmes réglages de temps ?'});
-  // le contenu dépendant de fixedTime est inséré dynamiquement après réponse (voir advanceWizard)
+
+  if(d.sameWork) q.push({kind:'wheel', key:'fixed_work', title:'Temps de travail', sub:'S\u2019applique à tous les exercices.'});
+  if(d.sameRest){
+    q.push({kind:'wheel', key:'fixed_rest', title:'Temps de récupération', sub:'Entre chaque série, pour tous les exercices.'});
+    if(d.hasRestBetween){
+      q.push({kind:'wheel', key:'fixed_restNext', title:'Récupération avant l\u2019exercice suivant', sub:'Entre chaque exercice, pour tous les exercices.'});
+    }
+  }
+  if(d.sameRounds) q.push({kind:'stepper', key:'fixed_rounds', title:'Nombre de tours', sub:'S\u2019applique à tous les exercices.'});
+
+  const n = d.numExercises;
+  for(let i=1;i<=n;i++){
+    const badge = `${i}/${n}`;
+    if(!d.sameWork) q.push({kind:'wheel', key:`ex_${i}_work`, title:`Exercice ${i}`, sub:'Temps de travail.', badge});
+    if(!d.sameRest){
+      q.push({kind:'wheel', key:`ex_${i}_rest`, title:`Exercice ${i}`, sub:'Temps de récupération entre les séries.', badge});
+      if(d.hasRestBetween && i<n){
+        q.push({kind:'wheel', key:`ex_${i}_restNext`, title:`Exercice ${i}`, sub:'Récupération avant l\u2019exercice suivant.', badge});
+      }
+    }
+    if(!d.sameRounds) q.push({kind:'stepper', key:`ex_${i}_rounds`, title:`Exercice ${i}`, sub:'Nombre de séries (tours).', badge});
+  }
+
   if(d.hasCooldown) q.push({kind:'wheel', key:'cooldownTime', title:'Retour au calme', sub:'Durée de la phase de retour au calme.'});
   q.push({kind:'name', title:'Nom du preset', sub:'Donnez un nom à cet entraînement pour le retrouver facilement.'});
   return q;
-}
-function exerciseStepsFor(n, withRestBetween){
-  const steps = [];
-  for(let i=1;i<=n;i++){
-    steps.push({kind:'wheel', key:`ex_${i}_work`, title:`Exercice ${i}`, sub:'Temps de travail.', badge:`${i}/${n}`});
-    steps.push({kind:'wheel', key:`ex_${i}_rest`, title:`Exercice ${i}`, sub:'Temps de récupération entre les séries.', badge:`${i}/${n}`});
-    steps.push({kind:'stepper', key:`ex_${i}_rounds`, title:`Exercice ${i}`, sub:'Nombre de séries (tours).', badge:`${i}/${n}`});
-    if(withRestBetween && i<n){
-      steps.push({kind:'wheel', key:`ex_${i}_restNext`, title:`Exercice ${i}`, sub:'Récupération avant l\u2019exercice suivant.', badge:`${i}/${n}`});
-    }
-  }
-  return steps;
 }
 
 function startCreate(){
@@ -446,10 +483,42 @@ function startCreate(){
     hasCooldown:false, cooldownTime:120,
     numExercises:1,
     soundStyle:'intense',
-    fixedTime:null,
-    fixed:{work:30,rest:15,rounds:3,restNext:30},
-    exercises:[],
+    sameWork:true, sameRest:true, sameRounds:true,
   };
+  go('wizardIntro');
+}
+
+/* Charge un preset existant dans le brouillon pour permettre sa modification */
+function editPreset(id){
+  const p = Store.get(id);
+  if(!p) return;
+  const exercises = resolveExercises(p);
+  const allSame = (key) => exercises.length<=1 || exercises.every(e => e[key]===exercises[0][key]);
+  const sameWork = allSame('work');
+  const sameRest = allSame('rest') && allSame('restNext');
+  const sameRounds = allSame('rounds');
+
+  const draft = {
+    id: p.id, name: p.name,
+    hasPrep: !!p.hasPrep, prepTime: p.prepTime ?? 60,
+    hasWarmup: !!p.hasWarmup, warmupTime: p.warmupTime ?? 180,
+    hasRestBetween: !!p.hasRestBetween,
+    hasCooldown: !!p.hasCooldown, cooldownTime: p.cooldownTime ?? 120,
+    numExercises: p.numExercises,
+    soundStyle: p.soundStyle==='zen' ? 'zen' : 'intense',
+    sameWork, sameRest, sameRounds,
+  };
+  if(sameWork) draft.fixed_work = exercises[0].work;
+  if(sameRest){ draft.fixed_rest = exercises[0].rest; draft.fixed_restNext = exercises[0].restNext; }
+  if(sameRounds) draft.fixed_rounds = exercises[0].rounds;
+  exercises.forEach((e,idx)=>{
+    const i = idx+1;
+    if(!sameWork) draft[`ex_${i}_work`] = e.work;
+    if(!sameRest){ draft[`ex_${i}_rest`] = e.rest; draft[`ex_${i}_restNext`] = e.restNext; }
+    if(!sameRounds) draft[`ex_${i}_rounds`] = e.rounds;
+  });
+
+  state.draft = draft;
   go('wizardIntro');
 }
 
@@ -462,29 +531,6 @@ function launchWizard(){
 function currentStep(){ return state.wizardQueue[state.wizardIndex]; }
 
 function advanceWizard(){
-  const step = currentStep();
-  // insertion dynamique une fois qu'on connait fixedTime
-  if(step && step.key==='fixedTime' && state.draft.fixedTime!==null){
-    // retire d'éventuelles étapes dynamiques précédemment insérées (cas d'un retour en arrière + nouveau choix)
-    for(let i=state.wizardQueue.length-1; i>state.wizardIndex; i--){
-      if(state.wizardQueue[i]._inserted) state.wizardQueue.splice(i,1);
-    }
-    let toInsert;
-    if(state.draft.fixedTime===true){
-      toInsert = [
-        {kind:'wheel', key:'fixed_work', title:'Temps de travail', sub:'S\u2019applique à tous les exercices.'},
-        {kind:'wheel', key:'fixed_rest', title:'Temps de récupération', sub:'Entre chaque série, pour tous les exercices.'},
-        {kind:'stepper', key:'fixed_rounds', title:'Nombre de tours', sub:'S\u2019applique à tous les exercices.'},
-      ];
-      if(state.draft.hasRestBetween){
-        toInsert.push({kind:'wheel', key:'fixed_restNext', title:'Récupération avant l\u2019exercice suivant', sub:'Entre chaque exercice.'});
-      }
-    } else {
-      toInsert = exerciseStepsFor(state.draft.numExercises, state.draft.hasRestBetween);
-    }
-    toInsert.forEach(s=>s._inserted=true);
-    state.wizardQueue.splice(state.wizardIndex+1, 0, ...toInsert);
-  }
   state.wizardIndex++;
   if(state.wizardIndex >= state.wizardQueue.length){
     finalizePreset();
@@ -495,8 +541,17 @@ function advanceWizard(){
 
 function finalizePreset(){
   const d = state.draft;
+  const exercises = [];
+  for(let i=1;i<=d.numExercises;i++){
+    exercises.push({
+      work: d.sameWork ? (d['fixed_work'] ?? 30) : (d[`ex_${i}_work`] ?? 30),
+      rest: d.sameRest ? (d['fixed_rest'] ?? 15) : (d[`ex_${i}_rest`] ?? 15),
+      rounds: d.sameRounds ? (d['fixed_rounds'] ?? 3) : (d[`ex_${i}_rounds`] ?? 3),
+      restNext: d.sameRest ? (d['fixed_restNext'] ?? 30) : (d[`ex_${i}_restNext`] ?? 30),
+    });
+  }
   const preset = {
-    id: uid(),
+    id: d.id || uid(),
     name: d.name && d.name.trim() ? d.name.trim() : 'Entraînement',
     hasPrep:d.hasPrep, prepTime:d.prepTime,
     hasWarmup:d.hasWarmup, warmupTime:d.warmupTime,
@@ -504,39 +559,41 @@ function finalizePreset(){
     hasRestBetween:d.hasRestBetween,
     numExercises:d.numExercises,
     soundStyle: d.soundStyle==='zen' ? 'zen' : 'intense',
-    fixedTime:d.fixedTime,
+    exercises,
   };
-  if(d.fixedTime){
-    preset.fixed = {
-      work: d['fixed_work'] ?? 30,
-      rest: d['fixed_rest'] ?? 15,
-      rounds: d['fixed_rounds'] ?? 3,
-      restNext: d['fixed_restNext'] ?? 30,
-    };
+  if(d.id){
+    const list = Store.all();
+    const idx = list.findIndex(x=>x.id===d.id);
+    if(idx>-1) list[idx] = preset; else list.unshift(preset);
+    Store.save(list);
   } else {
-    preset.exercises = [];
-    for(let i=1;i<=d.numExercises;i++){
-      preset.exercises.push({
-        work: d[`ex_${i}_work`] ?? 30,
-        rest: d[`ex_${i}_rest`] ?? 15,
-        rounds: d[`ex_${i}_rounds`] ?? 3,
-        restNext: d[`ex_${i}_restNext`] ?? 30,
-      });
-    }
+    Store.add(preset);
   }
-  Store.add(preset);
   state.draft = null;
   state.navStack = [];
   go('home', {push:false});
 }
 
+/* Compatible avec les presets déjà enregistrés au format précédent (fixedTime/fixed) */
+function resolveExercises(p){
+  if(Array.isArray(p.exercises) && p.exercises.length === p.numExercises) return p.exercises;
+  const arr = [];
+  for(let i=1;i<=p.numExercises;i++){
+    if(p.fixedTime && p.fixed) arr.push(p.fixed);
+    else if(p.exercises && p.exercises[i-1]) arr.push(p.exercises[i-1]);
+    else arr.push({work:30, rest:15, rounds:3, restNext:30});
+  }
+  return arr;
+}
+
 /* ============================= SEQUENCE D'ENTRAINEMENT ============================= */
 function buildSequence(p){
   const seq = [];
+  const exercises = resolveExercises(p);
   if(p.hasPrep) seq.push({type:'prep', label:'Préparation', sub:'', duration:p.prepTime});
   if(p.hasWarmup) seq.push({type:'warmup', label:'Échauffement', sub:'', duration:p.warmupTime});
   for(let i=1;i<=p.numExercises;i++){
-    const cfg = p.fixedTime ? p.fixed : p.exercises[i-1];
+    const cfg = exercises[i-1];
     for(let r=1;r<=cfg.rounds;r++){
       seq.push({type:'work', label:`Exercice ${i}`, sub:`Série ${r}/${cfg.rounds}`, duration:cfg.work});
       if(r<cfg.rounds){
@@ -569,7 +626,7 @@ function startRun(preset){
     paused:false,
     finished:false,
     style: preset.soundStyle || 'intense',
-    ecoMode:true,
+    ecoMode:false,
     lastTouch: Date.now(),
   };
   initTouchWatcher();
@@ -738,6 +795,7 @@ function getDefaultForKey(key){
   return 30;
 }
 function toggleDraft(key){ state.draft[key] = !state.draft[key]; render(); }
+function setDraftBool(key, val){ state.draft[key] = val; render(); }
 function setDraftSound(style){ state.draft.soundStyle = style; render(); }
 function setDraftNum(key, delta, min, max){
   const cur = state.draft[key] ?? getDefaultForKey(key);
@@ -747,7 +805,6 @@ function setDraftNum(key, delta, min, max){
 function setStepperVal(key, delta, min, max){ setDraftNum(key, delta, min, max); }
 function setDraftName(val){ state.draft.name = val; }
 function cancelWizard(){ state.draft=null; state.navStack=[]; go('home',{push:false}); }
-function chooseFixed(val){ state.draft.fixedTime = val; advanceWizard(); }
 function wizardBack(){
   if(state.wizardIndex>0){ state.wizardIndex--; render(); }
   else cancelWizard();
@@ -779,7 +836,7 @@ function renderHome(app){
   app.innerHTML = `
     <div class="screen">
       <div class="topbar"><h1>Minuteur Sport</h1></div>
-      <div class="content">${list}</div>
+      <div class="content" id="scrollArea">${list}</div>
     </div>
     <button class="fab-add" onclick="startCreate()">+</button>
   `;
@@ -792,9 +849,9 @@ function renderWizardIntro(app){
     <div class="screen">
       <div class="topbar">
         <button class="iconbtn" onclick="cancelWizard()">‹</button>
-        <h1>Nouveau preset</h1>
+        <h1>${d.id ? 'Modifier le preset' : 'Nouveau preset'}</h1>
       </div>
-      <div class="content">
+      <div class="content" id="scrollArea">
         <p class="eyebrow">Étape 1</p>
         <h2 class="step-title">Configurer les phases</h2>
         <p class="step-sub">Cochez ce que doit contenir l'entraînement, et indiquez le nombre d'exercices.</p>
@@ -822,6 +879,31 @@ function renderWizardIntro(app){
             <button onclick="setDraftNum('numExercises',-1,1,20)">−</button>
             <div class="val">${d.numExercises}</div>
             <button onclick="setDraftNum('numExercises',1,1,20)">+</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Réglages des exercices</label>
+          <div class="toggle-pair">
+            <div class="tp-label">Temps de travail identique pour tous les exercices ?</div>
+            <div class="tp-buttons">
+              <button class="tp-btn ${d.sameWork?'selected':''}" onclick="setDraftBool('sameWork', true)">OUI, identique</button>
+              <button class="tp-btn ${!d.sameWork?'selected':''}" onclick="setDraftBool('sameWork', false)">NON, par exercice</button>
+            </div>
+          </div>
+          <div class="toggle-pair">
+            <div class="tp-label">Temps de récupération identique pour tous les exercices ?</div>
+            <div class="tp-buttons">
+              <button class="tp-btn ${d.sameRest?'selected':''}" onclick="setDraftBool('sameRest', true)">OUI, identique</button>
+              <button class="tp-btn ${!d.sameRest?'selected':''}" onclick="setDraftBool('sameRest', false)">NON, par exercice</button>
+            </div>
+          </div>
+          <div class="toggle-pair">
+            <div class="tp-label">Nombre de tours identique pour tous les exercices ?</div>
+            <div class="tp-buttons">
+              <button class="tp-btn ${d.sameRounds?'selected':''}" onclick="setDraftBool('sameRounds', true)">OUI, identique</button>
+              <button class="tp-btn ${!d.sameRounds?'selected':''}" onclick="setDraftBool('sameRounds', false)">NON, par exercice</button>
+            </div>
           </div>
         </div>
 
@@ -862,12 +944,6 @@ function renderWizardStep(app){
       <div class="wheel-wrap" id="wheelContainer"></div>
       <p class="wheel-preview" id="wheelPreview"></p>
     `;
-  } else if(step.kind==='choice'){
-    bodyHtml = `
-      <div class="choice-row">
-        <button class="choice-btn ${d.fixedTime===true?'selected':''}" onclick="chooseFixed(true)">OUI</button>
-        <button class="choice-btn ${d.fixedTime===false?'selected':''}" onclick="chooseFixed(false)">NON</button>
-      </div>`;
   } else if(step.kind==='stepper'){
     const val = d[step.key] ?? getDefaultForKey(step.key);
     bodyHtml = `
@@ -892,7 +968,7 @@ function renderWizardStep(app){
     <div class="screen">
       <div class="topbar">
         <button class="iconbtn" onclick="wizardBack()">‹</button>
-        <h1>Nouvel entraînement</h1>
+        <h1>${d.id ? 'Modifier l\u2019entraînement' : 'Nouvel entraînement'}</h1>
       </div>
       <div class="content" style="flex:0 0 auto; overflow:visible;">
         <p class="eyebrow">Étape ${state.wizardIndex+1} / ${state.wizardQueue.length}${badge}</p>
@@ -940,7 +1016,7 @@ function renderPresetDetail(app){
         <button class="iconbtn" onclick="back()">‹</button>
         <h1>${escapeHtml(p.name)}</h1>
       </div>
-      <div class="content">
+      <div class="content" id="scrollArea">
         <p class="step-sub" style="margin-bottom:4px;">${p.numExercises} exercice${p.numExercises>1?'s':''} · Durée totale estimée : ${fmtShort(total)}</p>
         <p class="step-sub" style="margin-bottom:16px; display:flex; align-items:center; gap:8px;">
           Ambiance : ${p.soundStyle==='zen' ? '🧘 Zen (bong)' : '🚨 Intense (buzzer)'}
@@ -948,7 +1024,10 @@ function renderPresetDetail(app){
         </p>
         <div class="card" style="padding:6px 16px;">${items}</div>
       </div>
-      <div class="footer"><button class="btn" onclick="startRun(Store.get('${p.id}'))">▶ Démarrer</button></div>
+      <div class="footer btn-row">
+        <button class="btn secondary" style="flex:0 0 auto; padding-left:20px; padding-right:20px;" onclick="editPreset('${p.id}')">✎ Modifier</button>
+        <button class="btn" onclick="startRun(Store.get('${p.id}'))">▶ Démarrer</button>
+      </div>
     </div>`;
 }
 
@@ -974,12 +1053,14 @@ function renderRun(app){
       <button class="ctrl-btn" onclick="skipPhase()">Suivant ›</button>
     </div>`;
 
+  const nextColor = next ? phaseColor(next.type) : color;
+
   app.innerHTML = `
     <div class="screen run-screen">
       <div class="run-top">
         <div class="run-top-main">
           <span class="phase-pill" style="background:${color}22; color:${color};">${ph.label}</span>
-          <div class="exercise-label">${ph.sub||''}</div>
+          <div class="exercise-label" style="color:${color};">${ph.sub||''}</div>
         </div>
         ${ph.type!=='end' ? `<button class="eco-toggle ${r.ecoMode?'on':''}" onclick="toggleEco()">🔋 Éco ${r.ecoMode?'ON':'OFF'}</button>` : ''}
       </div>
@@ -994,7 +1075,7 @@ function renderRun(app){
           ${r.paused && ph.type!=='end' ? '<div class="round-display">EN PAUSE</div>' : ''}
         </div>
       </div>
-      <div class="up-next">${next ? 'Suivant : '+next.label : ''}</div>
+      <div class="up-next" style="${next ? `color:${nextColor};` : ''}">${next ? 'Suivant : '+next.label : ''}</div>
       ${controlsHtml}
     </div>
     ${state.showStopConfirm ? `
@@ -1027,13 +1108,24 @@ function cancelStop(){ state.showStopConfirm = false; render(); }
 function confirmStop(){ state.showStopConfirm = false; stopRun(); }
 
 /* ============================= DISPATCH ============================= */
+let lastRenderedScreen = null;
 function render(){
   const app = document.getElementById('app');
+  const prevScrollEl = document.getElementById('scrollArea');
+  const samScreen = state.screen === lastRenderedScreen;
+  const prevScrollTop = (samScreen && prevScrollEl) ? prevScrollEl.scrollTop : 0;
+
   if(state.screen==='home') renderHome(app);
   else if(state.screen==='wizardIntro') renderWizardIntro(app);
   else if(state.screen==='wizardStep') renderWizardStep(app);
   else if(state.screen==='presetDetail') renderPresetDetail(app);
   else if(state.screen==='run') renderRun(app);
+
+  if(samScreen && prevScrollTop>0){
+    const newScrollEl = document.getElementById('scrollArea');
+    if(newScrollEl) newScrollEl.scrollTop = prevScrollTop;
+  }
+  lastRenderedScreen = state.screen;
 }
 
 /* ============================= INIT ============================= */
