@@ -1,4 +1,4 @@
-const CACHE_NAME = 'minuteur-sport-v1';
+const CACHE_NAME = 'minuteur-sport-v2';
 const ASSETS = [
   './index.html',
   './manifest.json',
@@ -22,14 +22,17 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+/* Network-first : on essaie toujours de récupérer la dernière version en ligne.
+   Le cache ne sert que de secours si le réseau échoue (mode hors-ligne),
+   ce qui évite de rester bloqué sur une ancienne version après un déploiement. */
 self.addEventListener('fetch', (event) => {
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      return cached || fetch(event.request).then((response) => {
+    fetch(event.request)
+      .then((response) => {
         const copy = response.clone();
         caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
         return response;
-      }).catch(() => cached);
-    })
+      })
+      .catch(() => caches.match(event.request))
   );
 });
