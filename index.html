@@ -1,6 +1,6 @@
 <!DOCTYPE html>
-<html lang="fr">
-<head>
+<html lang="fr"><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0B0F14">
@@ -8,9 +8,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Minuteur Sport</title>
-<link rel="manifest" href="manifest.json">
-<link rel="icon" href="icon-192.png">
-<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="manifest" href="https://xoprof-commits.github.io/HIIT-timers/manifest.json">
+<link rel="icon" href="https://xoprof-commits.github.io/HIIT-timers/icon-192.png">
+<link rel="apple-touch-icon" href="https://xoprof-commits.github.io/HIIT-timers/icon-192.png">
 <style>
   :root{
     --bg:#0B0F14;
@@ -190,6 +190,11 @@
   .btn-row{ display:flex; gap:10px; }
   .btn-row .btn{ flex:1; }
 
+  .summary-line{
+    padding:12px 2px; border-bottom:1px solid var(--line); font-size:14px; line-height:1.4;
+  }
+  .summary-line:last-child{ border-bottom:none; }
+
   .fab-add{
     position:fixed; bottom:calc(24px + var(--safe-bottom)); right:calc(50% - 260px + 20px);
     width:58px; height:58px; border-radius:50%; background:var(--work); color:#fff;
@@ -252,7 +257,13 @@
 </style>
 </head>
 <body>
-<div id="app"></div>
+<div id="app">
+    <div class="screen">
+      <div class="topbar"><h1>Minuteur Sport</h1></div>
+      <div class="content" id="scrollArea"><div class="empty"><div class="glyph">⏱️</div><p>Aucun entraînement pour l'instant.<br>Touchez le bouton + pour créer votre premier preset.</p></div></div>
+    </div>
+    <button class="fab-add" onclick="startCreate()">+</button>
+  </div>
 <div id="dimOverlay"></div>
 
 <script>
@@ -365,7 +376,7 @@ function playBuzzerPulse(delay=0, vol=0.9, dur=0.15){
   noiseSrc.start(t0); noiseSrc.stop(t0+dur+0.05);
 
   // Couches harmoniques (grave / medium / aigu) pour garder un caractère "buzzer" reconnaissable
-  [{f:110,g:1},{f:220,g:.7},{f:880,g:.5},{f:2800,g:.35}].forEach(p=>{
+  [{f:65,g:1.1},{f:130,g:.9},{f:260,g:.6},{f:900,g:.4},{f:2800,g:.25}].forEach(p=>{
     const osc = actx.createOscillator();
     const g = actx.createGain();
     osc.type = 'sawtooth'; osc.frequency.value = p.f;
@@ -384,7 +395,7 @@ function tickSound(style, delay=0){
   else beep(1300, 0.05, delay, 0.2, 'square');
 }
 /* Annonce de changement de phase :
-   - Début d'un temps de travail : 1 signal long (3s) — l'instant le plus important à repérer.
+   - Début d'un temps de travail : 1 signal long (2s) — l'instant le plus important à repérer.
    - Fin totale de l'entraînement : 5 signaux longs, en rafale.
    - Toute autre transition (préparation, échauffement, récupération, retour au calme) : 3 signaux brefs. */
 function signalPhaseStart(type, style='intense'){
@@ -397,9 +408,9 @@ function signalPhaseStart(type, style='intense'){
     return;
   }
   if(type==='work'){
-    if(style==='zen') playBong(0, 0.34, 3.0);
-    else playBuzzerPulse(0, 0.95, 3.0);
-    vibrate(2800);
+    if(style==='zen') playBong(0, 0.34, 2.0);
+    else playBuzzerPulse(0, 0.95, 2.0);
+    vibrate(1800);
     return;
   }
   for(let i=0;i<3;i++){
@@ -412,7 +423,7 @@ function signalPhaseStart(type, style='intense'){
 function previewSound(style){
   ensureAudio();
   tickSound(style,0); tickSound(style,0.4); tickSound(style,0.8);
-  if(style==='zen') playBong(1.3, 0.34, 3.0); else playBuzzerPulse(1.3, 0.95, 3.0);
+  if(style==='zen') playBong(1.3, 0.34, 2.0); else playBuzzerPulse(1.3, 0.95, 2.0);
 }
 
 let wakeLock = null;
@@ -609,6 +620,25 @@ function buildSequence(p){
   return seq;
 }
 
+/* Résumé condensé : une ligne par bloc (préparation/échauffement/exercice/retour au calme)
+   au lieu du détail série par série, pour un aperçu rapide et lisible du preset. */
+function buildCompactSummary(p){
+  const lines = [];
+  if(p.hasPrep) lines.push(`Préparation : ${fmtShort(p.prepTime)}`);
+  if(p.hasWarmup) lines.push(`Échauffement : ${fmtShort(p.warmupTime)}`);
+  const exercises = resolveExercises(p);
+  for(let i=1;i<=p.numExercises;i++){
+    const cfg = exercises[i-1];
+    let line = `Exercice ${i} : ${cfg.rounds} série${cfg.rounds>1?'s':''} ; travail ${fmtShort(cfg.work)} ; récup ${fmtShort(cfg.rest)}`;
+    if(p.hasRestBetween && i<p.numExercises){
+      line += ` ; récup avant suivant ${fmtShort(cfg.restNext)}`;
+    }
+    lines.push(line);
+  }
+  if(p.hasCooldown) lines.push(`Retour au calme : ${fmtShort(p.cooldownTime)}`);
+  return lines;
+}
+
 function phaseColor(type){
   return {prep:'var(--prep)', warmup:'var(--warmup)', work:'var(--work)', rest:'var(--rest)',
           restBeforeNext:'var(--rest)', cooldown:'var(--cooldown)', end:'var(--end)'}[type] || 'var(--work)';
@@ -648,7 +678,7 @@ function tick_start(){
     if(r.remaining<=0){
       nextPhase();
     } else {
-      if(secLeft<=3 && secLeft>=1 && Math.abs(r.remaining - secLeft) < 0.06 && r.seq[r.idx].type!=='end' && r._lastTick!==secLeft){
+      if(secLeft<=3 && secLeft>=1 && r.seq[r.idx].type!=='end' && r._lastTick!==secLeft){
         r._lastTick = secLeft; tickSound(r.style);
       }
       renderRunOnly();
@@ -1001,14 +1031,7 @@ function renderPresetDetail(app){
   if(!p){ go('home',{push:false}); return; }
   const seq = buildSequence(p).filter(s=>s.type!=='end');
   const total = seq.reduce((a,s)=>a+s.duration,0);
-  const items = seq.map(s=>`
-    <div class="summary-item">
-      <div class="tag" style="background:${phaseColor(s.type)}"></div>
-      <div style="flex:1;">
-        <div class="t">${s.label}${s.sub ? ' — '+s.sub : ''}</div>
-        <div class="d">${fmtShort(s.duration)}</div>
-      </div>
-    </div>`).join('');
+  const items = buildCompactSummary(p).map(line=>`<div class="summary-line">${line}</div>`).join('');
 
   app.innerHTML = `
     <div class="screen">
@@ -1025,8 +1048,8 @@ function renderPresetDetail(app){
         <div class="card" style="padding:6px 16px;">${items}</div>
       </div>
       <div class="footer btn-row">
-        <button class="btn secondary" style="flex:0 0 auto; padding-left:20px; padding-right:20px;" onclick="editPreset('${p.id}')">✎ Modifier</button>
-        <button class="btn" onclick="startRun(Store.get('${p.id}'))">▶ Démarrer</button>
+        <button class="btn" style="flex:2;" onclick="startRun(Store.get('${p.id}'))">▶ Démarrer</button>
+        <button class="btn secondary" style="flex:1;" onclick="editPreset('${p.id}')">✎ Modifier</button>
       </div>
     </div>`;
 }
@@ -1135,5 +1158,6 @@ if('serviceWorker' in navigator){
 }
 render();
 </script>
-</body>
-</html>
+
+
+</body></html>
